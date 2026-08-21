@@ -1,0 +1,188 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --color-brand-blue: #0A4D92;
+  --color-brand-blue-dark: #073260;
+  --color-brand-blue-deep: #051E3C;
+  --color-brand-blue-light: #0284C7;
+  --color-brand-orange: #F97316;
+  --color-brand-orange-dark: #EA580C;
+  --color-brand-green: #10B981;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    color: #0f172a;
+    background-color: #f8fafc;
+    overflow-x: hidden;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Custom refined scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Keyframe animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* WYSIWYG & Rich Text Content Rendering Styles */
+.wysiwyg-content,
+.rich-text-content {
+  font-family: var(--font-sans);
+  color: #1e293b;
+  line-height: 1.7;
+}
+
+.wysiwyg-content h2,
+.rich-text-content h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #073B75;
+  margin-top: 1.5rem;
+  margin-bottom: 0.6rem;
+  line-height: 1.3;
+  font-family: var(--font-display);
+}
+
+.wysiwyg-content h3,
+.rich-text-content h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #073B75;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.35;
+  font-family: var(--font-display);
+}
+
+.wysiwyg-content p,
+.rich-text-content p {
+  margin-top: 0;
+  margin-bottom: 0.85rem;
+  line-height: 1.7;
+}
+
+.wysiwyg-content ul,
+.rich-text-content ul {
+  list-style-type: disc !important;
+  padding-left: 1.75rem !important;
+  margin-top: 0.5rem !important;
+  margin-bottom: 1rem !important;
+}
+
+.wysiwyg-content ul li,
+.rich-text-content ul li {
+  display: list-item !important;
+  margin-bottom: 0.35rem;
+  line-height: 1.6;
+}
+
+.wysiwyg-content ol,
+.rich-text-content ol {
+  list-style-type: decimal !important;
+  padding-left: 1.75rem !important;
+  margin-top: 0.5rem !important;
+  margin-bottom: 1rem !important;
+}
+
+.wysiwyg-content ol li,
+.rich-text-content ol li {
+  display: list-item !important;
+  margin-bottom: 0.35rem;
+  line-height: 1.6;
+}
+
+.wysiwyg-content blockquote,
+.rich-text-content blockquote {
+  border-left: 4px solid #073B75 !important;
+  background-color: #f0f7ff !important;
+  padding: 0.75rem 1.25rem !important;
+  margin: 1rem 0 !important;
+  border-radius: 0 0.5rem 0.5rem 0;
+  font-style: italic;
+  color: #334155;
+  line-height: 1.6;
+}
+
+.wysiwyg-content a,
+.rich-text-content a {
+  color: #0284C7 !important;
+  text-decoration: underline !important;
+  font-weight: 600;
+}
+
+.wysiwyg-content hr,
+.rich-text-content hr {
+  border: none !important;
+  border-top: 2px solid #e2e8f0 !important;
+  margin: 1.5rem 0 !important;
+}
+
+.wysiwyg-content .callout-box,
+.rich-text-content .callout-box {
+  margin: 1.25rem 0;
+  padding: 1rem 1.25rem;
+  background-color: #eff6ff;
+  border-left: 4px solid #073B75;
+  border-radius: 0 0.75rem 0.75rem 0;
+  color: #0f172a;
+  font-size: 0.925rem;
+  font-weight: 500;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.wysiwyg-content [align="center"],
+.rich-text-content [align="center"] {
+  text-align: center;
+}
+
+.wysiwyg-content [align="right"],
+.rich-text-content [align="right"] {
+  text-align: right;
+}
+
+.wysiwyg-content [align="justify"],
+.rich-text-content [align="justify"] {
+  text-align: justify;
+}
+

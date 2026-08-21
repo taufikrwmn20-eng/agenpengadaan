@@ -1,0 +1,6 @@
+{
+  "name": "PT. Agen Pengadaan Nasional",
+  "description": "Website Company Profile PT. Agen Pengadaan Nasional (National Procurement Agent - Innovation and Solution Hub) - Layanan Konsultasi Pengadaan Barang Jasa, Agen Pemilihan, Agen Kontrak, Pendampingan, Reviu HPS, dan Pelatihan PBJ.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
