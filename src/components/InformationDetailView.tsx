@@ -64,14 +64,14 @@ export const InformationDetailView: React.FC<InformationDetailViewProps> = ({
     );
   }
 
-  const handleCommentSubmit = (e: React.FormEvent) => {
+  const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!authorName.trim() || !email.trim() || !commentText.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
     
     try {
-      const updated = addArticleComment(article.id, authorName, email, commentText);
+      const updated = await addArticleComment(article.id, authorName, email, commentText);
       
       if (updated && updated.comments) {
         setComments([...updated.comments]);

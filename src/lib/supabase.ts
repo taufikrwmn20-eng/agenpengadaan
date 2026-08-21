@@ -8,28 +8,67 @@ export interface SupabaseConfig {
 }
 
 /**
+ * Normalize Supabase Project URL to prevent common input mistakes
+ * e.g., converting dashboard URL https://supabase.com/dashboard/project/xyz to https://xyz.supabase.co
+ */
+export function normalizeSupabaseUrl(input: string): string {
+  let trimmed = (input || '').trim();
+  if (!trimmed) return '';
+
+  // Case 1: User pasted dashboard URL (e.g. https://supabase.com/dashboard/project/iqaognnflikyxedswmrz)
+  const dashboardMatch = trimmed.match(/supabase\.com\/dashboard\/project\/([a-zA-Z0-9_-]+)/i);
+  if (dashboardMatch && dashboardMatch[1]) {
+    return `https://${dashboardMatch[1]}.supabase.co`;
+  }
+
+  // Case 2: User entered raw project ID (e.g. iqaognnflikyxedswmrz)
+  if (/^[a-zA-Z0-9_-]{15,30}$/.test(trimmed) && !trimmed.includes('.') && !trimmed.includes('/')) {
+    return `https://${trimmed}.supabase.co`;
+  }
+
+  // Case 3: Missing protocol
+  if (trimmed.includes('.supabase.co') && !trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    return `https://${trimmed}`;
+  }
+
+  // Remove trailing slash
+  return trimmed.replace(/\/+$/, '');
+}
+
+/**
  * Get Supabase configuration directly from Environment Variables (Vercel / .env)
+ * with direct pre-configured fallback for PT. APN's official Supabase project
  */
 export function getSupabaseConfig(): SupabaseConfig {
-  let url = (import.meta.env.VITE_SUPABASE_URL || '').trim();
+  let url = normalizeSupabaseUrl((import.meta.env.VITE_SUPABASE_URL || '').trim());
   let anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 
   // Fallback to legacy local storage if env is not loaded yet in some test builds
   if (typeof window !== 'undefined') {
     if (!url) {
-      url = (localStorage.getItem('apn_supabase_url') || '').trim();
+      url = normalizeSupabaseUrl((localStorage.getItem('apn_supabase_url') || '').trim());
     }
     if (!anonKey) {
       anonKey = (localStorage.getItem('apn_supabase_anon_key') || '').trim();
     }
   }
 
+  // Pre-configured official Supabase instance credentials for PT. APN
+  if (!url) {
+    url = 'https://iqaognnflikyxedswmrz.supabase.co';
+  }
+  if (!anonKey) {
+    anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlxYW9nbm5mbGlreXhlZHN3bXJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyOTg4MTgsImV4cCI6MjEwMjg3NDgxOH0.795ZMmo6AACoeerxmcDWa1bfgaXLciDPFZaK2s7AOxE';
+  }
+
+  url = normalizeSupabaseUrl(url);
+
   const isPlaceholder = !url || url.includes('your-project') || url.includes('example.com') || anonKey.includes('...');
 
   return {
     url,
     anonKey,
-    isConfigured: Boolean(url && anonKey && url.startsWith('http') && !isPlaceholder)
+    isConfigured: Boolean(url && anonKey && url.startsWith('https://') && !isPlaceholder)
   };
 }
 
@@ -236,6 +275,77 @@ export async function fetchAdminCredentialsFromCloud(): Promise<AdminCredentials
   }
 }
 
+export function saveCustomSupabaseConfig(url: string, anonKey: string): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const cleanUrl = normalizeSupabaseUrl(url.trim());
+    const cleanKey = anonKey.trim();
+    if (cleanUrl) {
+      localStorage.setItem('apn_supabase_url', cleanUrl);
+    } else {
+      localStorage.removeItem('apn_supabase_url');
+    }
+    if (cleanKey) {
+      localStorage.setItem('apn_supabase_anon_key', cleanKey);
+    } else {
+      localStorage.removeItem('apn_supabase_anon_key');
+    }
+    // Reset client instance to force re-instantiation with new credentials
+    supabaseInstance = null;
+    currentConfigKey = '';
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function testSupabaseConnection(): Promise<{ connected: boolean; message: string; tablesFound?: string[] }> {
+  const config = getSupabaseConfig();
+  if (!config.isConfigured) {
+    return {
+      connected: false,
+      message: 'Konfigurasi Supabase belum lengkap. Masukkan Project URL dan Anon Key.'
+    };
+  }
+
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return {
+      connected: false,
+      message: 'Gagal menginisialisasi Supabase Client. Periksa format URL & Anon Key.'
+    };
+  }
+
+  try {
+    // 1. Test app_settings table
+    const settingsRes = await supabase.from('app_settings').select('key').limit(1);
+    // 2. Test articles table
+    const articlesRes = await supabase.from('articles').select('id').limit(1);
+
+    const tablesFound: string[] = [];
+    if (!settingsRes.error) tablesFound.push('app_settings');
+    if (!articlesRes.error) tablesFound.push('articles');
+
+    if (settingsRes.error && articlesRes.error) {
+      return {
+        connected: false,
+        message: `Koneksi gagal: ${settingsRes.error.message || articlesRes.error.message}`
+      };
+    }
+
+    return {
+      connected: true,
+      message: 'Koneksi ke Supabase Cloud Berhasil 100%!',
+      tablesFound
+    };
+  } catch (err: any) {
+    return {
+      connected: false,
+      message: `Gagal terhubung: ${err?.message || 'Network error'}`
+    };
+  }
+}
+
 export async function saveAdminCredentialsToCloud(username: string, pass: string): Promise<boolean> {
   const supabase = getSupabaseClient();
   if (!supabase) return false;
@@ -263,6 +373,47 @@ export async function saveAdminCredentialsToCloud(username: string, pass: string
   } catch (err) {
     console.warn('Network error saving credentials to Supabase:', err);
     return false;
+  }
+}
+
+export async function syncAllDataToCloudNow(
+  articles: InformationItem[],
+  username: string,
+  pass: string
+): Promise<{ success: boolean; message: string; details: { articlesSynced: number; credsSynced: boolean } }> {
+  const config = getSupabaseConfig();
+  if (!config.isConfigured) {
+    return {
+      success: false,
+      message: 'Supabase belum terhubung. Silakan masukkan Project URL & Anon Key.',
+      details: { articlesSynced: 0, credsSynced: false }
+    };
+  }
+
+  // 1. Sync credentials
+  const credsSynced = await saveAdminCredentialsToCloud(username, pass);
+
+  // 2. Sync articles
+  let articlesSynced = 0;
+  if (articles.length > 0) {
+    const seedRes = await seedAllArticlesToCloud(articles);
+    if (seedRes.success) {
+      articlesSynced = seedRes.count;
+    }
+  }
+
+  if (credsSynced || articlesSynced > 0) {
+    return {
+      success: true,
+      message: `Sinkronisasi berhasil! Password admin tersimpan & ${articlesSynced} artikel tersinkronisasi ke Supabase.`,
+      details: { articlesSynced, credsSynced }
+    };
+  } else {
+    return {
+      success: false,
+      message: 'Gagal sinkronisasi data ke Supabase. Pastikan SQL Setup Policy sudah dijalankan di Supabase.',
+      details: { articlesSynced: 0, credsSynced: false }
+    };
   }
 }
 

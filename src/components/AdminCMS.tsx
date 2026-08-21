@@ -6,7 +6,8 @@ import {
   MessageSquare, User, Calendar, RefreshCw, Shield,
   Upload, FileUp, Sparkles, AlertCircle, Link as LinkIcon,
   Reply, MessageCircle, Search, Filter, CheckCircle2,
-  CornerDownRight, ChevronRight, ShieldCheck, Mail
+  CornerDownRight, ChevronRight, ShieldCheck, Mail,
+  Cloud, Database, Copy, HelpCircle, CheckCircle, ExternalLink
 } from 'lucide-react';
 import { 
   checkAdminAuth, loginAdmin, logoutAdmin, 
@@ -14,6 +15,11 @@ import {
   toggleHideComment, replyToComment, updateCommentReply, deleteComment, deleteCommentReply,
   addArticleComment, syncAdminCredentialsWithCloud
 } from '../data/informationData';
+import { 
+  getSupabaseConfig, saveCustomSupabaseConfig, 
+  testSupabaseConnection, syncAllDataToCloudNow, 
+  normalizeSupabaseUrl, SUPABASE_SETUP_SQL 
+} from '../lib/supabase';
 import { WYSIWYGEditor } from './WYSIWYGEditor';
 
 interface AdminCMSProps {
@@ -49,6 +55,7 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
   const [replyAuthor, setReplyAuthor] = useState('Admin PT. APN');
   const [replyRole, setReplyRole] = useState('Tim Ahli PBJ');
   const [replyText, setReplyText] = useState('');
+  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
 
   // Add New Comment Modal State (Admin directly adding a comment)
   const [isAddCommentModalOpen, setIsAddCommentModalOpen] = useState(false);
@@ -106,10 +113,77 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
   const [isSavingCreds, setIsSavingCreds] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
+  // Cloud Supabase Connection Modal & Sync State
+  const [isCloudModalOpen, setIsCloudModalOpen] = useState(false);
+  const [cloudUrl, setCloudUrl] = useState(() => getSupabaseConfig().url || 'https://iqaognnflikyxedswmrz.supabase.co');
+  const [cloudAnonKey, setCloudAnonKey] = useState(() => getSupabaseConfig().anonKey || '');
+  const [showCloudAnonKey, setShowCloudAnonKey] = useState(false);
+  const [isCloudConfigured, setIsCloudConfigured] = useState(() => getSupabaseConfig().isConfigured);
+  const [cloudTestLoading, setCloudTestLoading] = useState(false);
+  const [cloudTestResult, setCloudTestResult] = useState<{ connected: boolean; message: string; tablesFound?: string[] } | null>(null);
+  const [cloudSyncLoading, setCloudSyncLoading] = useState(false);
+  const [cloudSyncResult, setCloudSyncResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [sqlCopied, setSqlCopied] = useState(false);
+
   useEffect(() => {
     setIsAuthenticated(checkAdminAuth());
     syncAdminCredentialsWithCloud();
+    // Test initial connection status silently
+    if (getSupabaseConfig().isConfigured) {
+      testSupabaseConnection().then((res) => {
+        setIsCloudConfigured(res.connected);
+      });
+    }
   }, []);
+
+  const handleTestAndSaveCloud = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCloudTestLoading(true);
+    setCloudTestResult(null);
+    setCloudSyncResult(null);
+
+    const formattedUrl = normalizeSupabaseUrl(cloudUrl);
+    setCloudUrl(formattedUrl);
+
+    const saved = saveCustomSupabaseConfig(formattedUrl, cloudAnonKey);
+    if (!saved) {
+      setCloudTestLoading(false);
+      setCloudTestResult({ connected: false, message: 'Gagal menyimpan konfigurasi ke browser.' });
+      return;
+    }
+
+    const res = await testSupabaseConnection();
+    setCloudTestLoading(false);
+    setCloudTestResult(res);
+    setIsCloudConfigured(getSupabaseConfig().isConfigured && res.connected);
+
+    if (res.connected) {
+      showToast('Koneksi Supabase berhasil diverifikasi!');
+    }
+  };
+
+  const handleSyncAllToCloud = async () => {
+    setCloudSyncLoading(true);
+    setCloudSyncResult(null);
+    const savedUser = localStorage.getItem('apn_custom_admin_user') || 'admin';
+    const savedPass = localStorage.getItem('apn_custom_admin_pass') || 'apn2026';
+    
+    const res = await syncAllDataToCloudNow(articles, savedUser, savedPass);
+    setCloudSyncLoading(false);
+    setCloudSyncResult(res);
+
+    if (res.success) {
+      showToast('Sinkronisasi cloud berhasil!');
+      onRefreshArticles();
+    }
+  };
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(SUPABASE_SETUP_SQL);
+    setSqlCopied(true);
+    setTimeout(() => setSqlCopied(false), 2500);
+    showToast('SQL Setup berhasil disalin!');
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -241,25 +315,37 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
     });
   };
 
-  const handleSaveArticle = (e: React.FormEvent) => {
+  const [isSavingArticle, setIsSavingArticle] = useState(false);
+
+  const handleSaveArticle = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title.trim()) return;
+    if (!formData.title.trim() || isSavingArticle) return;
 
-    upsertArticle({
-      id: editingId || undefined,
-      title: formData.title,
-      category: formData.category,
-      author: formData.author,
-      readTime: '4 min',
-      imageUrl: formData.imageUrl,
-      imageCaption: formData.imageCaption,
-      summary: formData.summary || formData.content.replace(/<[^>]*>/g, '').slice(0, 180) + '...',
-      content: formData.content
-    });
+    setIsSavingArticle(true);
+    try {
+      await upsertArticle({
+        id: editingId || undefined,
+        title: formData.title,
+        category: formData.category,
+        author: formData.author,
+        readTime: '4 min',
+        imageUrl: formData.imageUrl,
+        imageCaption: formData.imageCaption,
+        summary: formData.summary || formData.content.replace(/<[^>]*>/g, '').slice(0, 180) + '...',
+        content: formData.content
+      });
 
-    setIsEditorOpen(false);
-    onRefreshArticles();
-    showToast(editingId ? 'Perubahan artikel berhasil disimpan.' : 'Artikel baru berhasil dipublikasikan.');
+      setIsEditorOpen(false);
+      onRefreshArticles();
+      showToast(editingId ? 'Perubahan artikel berhasil disimpan.' : 'Artikel baru berhasil dipublikasikan.');
+    } catch (err) {
+      console.error('Save error:', err);
+      showToast('Terjadi kendala saat menyimpan. Perubahan tetap disimpan di browser.');
+      setIsEditorOpen(false);
+      onRefreshArticles();
+    } finally {
+      setIsSavingArticle(false);
+    }
   };
 
   const handleSaveCredentials = async (e: React.FormEvent) => {
@@ -277,8 +363,8 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
   };
 
   // Comment Actions
-  const handleToggleHide = (articleId: string, commentId: string) => {
-    toggleHideComment(articleId, commentId);
+  const handleToggleHide = async (articleId: string, commentId: string) => {
+    await toggleHideComment(articleId, commentId);
     onRefreshArticles();
     showToast('Status tampilan komentar diperbarui.');
   };
@@ -289,8 +375,8 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
       title: 'Hapus Komentar',
       message: `Apakah Anda yakin ingin menghapus komentar dari "${authorName}" secara permanen?`,
       confirmText: 'Ya, Hapus Komentar',
-      onConfirm: () => {
-        deleteComment(articleId, commentId);
+      onConfirm: async () => {
+        await deleteComment(articleId, commentId);
         onRefreshArticles();
         setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         showToast(`Komentar dari "${authorName}" berhasil dihapus.`);
@@ -314,22 +400,34 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
     setReplyText(reply.comment || '');
   };
 
-  const handleSubmitReply = (articleId: string, commentId: string, e: React.FormEvent) => {
+  const handleSubmitReply = async (articleId: string, commentId: string, e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyText.trim()) return;
+    if (!replyText.trim() || isSubmittingReply) return;
 
-    if (editingReplyId) {
-      updateCommentReply(articleId, commentId, editingReplyId, replyText, replyAuthor, replyRole);
-      showToast('Tanggapan resmi admin berhasil diperbarui.');
-    } else {
-      replyToComment(articleId, commentId, replyText, replyAuthor, replyRole);
-      showToast('Balasan resmi admin berhasil dikirim.');
+    setIsSubmittingReply(true);
+    try {
+      if (editingReplyId) {
+        await updateCommentReply(articleId, commentId, editingReplyId, replyText, replyAuthor, replyRole);
+        showToast('Tanggapan resmi admin berhasil diperbarui.');
+      } else {
+        await replyToComment(articleId, commentId, replyText, replyAuthor, replyRole);
+        showToast('Balasan resmi admin berhasil dikirim.');
+      }
+
+      setReplyingCommentId(null);
+      setEditingReplyId(null);
+      setReplyText('');
+      onRefreshArticles();
+    } catch (err) {
+      console.error('Error submitting reply:', err);
+      showToast('Tanggapan berhasil disimpan secara lokal.');
+      setReplyingCommentId(null);
+      setEditingReplyId(null);
+      setReplyText('');
+      onRefreshArticles();
+    } finally {
+      setIsSubmittingReply(false);
     }
-
-    setReplyingCommentId(null);
-    setEditingReplyId(null);
-    setReplyText('');
-    onRefreshArticles();
   };
 
   const handleDeleteReply = (articleId: string, commentId: string, replyId: string) => {
@@ -338,8 +436,8 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
       title: 'Hapus Tanggapan Admin',
       message: 'Apakah Anda yakin ingin menghapus balasan resmi admin ini? Tanggapan akan segera dihapus.',
       confirmText: 'Ya, Hapus Balasan',
-      onConfirm: () => {
-        deleteCommentReply(articleId, commentId, replyId);
+      onConfirm: async () => {
+        await deleteCommentReply(articleId, commentId, replyId);
         onRefreshArticles();
         setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         showToast('Tanggapan admin berhasil dihapus.');
@@ -347,11 +445,11 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
     });
   };
 
-  const handleAddDirectComment = (e: React.FormEvent) => {
+  const handleAddDirectComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCommentTargetArticle || !newCommentAuthor.trim() || !newCommentEmail.trim() || !newCommentBody.trim()) return;
 
-    addArticleComment(newCommentTargetArticle, newCommentAuthor, newCommentEmail, newCommentBody);
+    await addArticleComment(newCommentTargetArticle, newCommentAuthor, newCommentEmail, newCommentBody);
     onRefreshArticles();
     setIsAddCommentModalOpen(false);
     setNewCommentAuthor('');
@@ -488,7 +586,7 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-slate-700/60 text-center">
+          <div className="mt-4 pt-4 border-t border-slate-700/60 text-center">
             <button
               onClick={onCloseAdmin}
               className="text-xs text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5 mx-auto"
@@ -551,7 +649,7 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsCredModalOpen(true)}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 cursor-pointer"
             >
               <Key className="w-3.5 h-3.5 text-amber-400" />
               <span className="hidden sm:inline">Ganti Password</span>
@@ -559,7 +657,7 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
 
             <button
               onClick={onCloseAdmin}
-              className="px-3 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 text-xs font-semibold rounded-lg transition flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 cursor-pointer"
             >
               <Eye className="w-3.5 h-3.5" />
               <span>Lihat Website</span>
@@ -1041,9 +1139,15 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
                           </button>
                           <button
                             type="submit"
-                            className="px-4 py-1.5 bg-[#073B75] hover:bg-[#052C59] text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                            disabled={isSubmittingReply}
+                            className="px-4 py-1.5 bg-[#073B75] hover:bg-[#052C59] disabled:bg-slate-400 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
                           >
-                            {editingReplyId ? (
+                            {isSubmittingReply ? (
+                              <>
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                <span>Menyimpan...</span>
+                              </>
+                            ) : editingReplyId ? (
                               <>
                                 <Check className="w-3.5 h-3.5" />
                                 <span>Simpan Perubahan Tanggapan</span>
@@ -1387,9 +1491,11 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-[#073B75] hover:bg-[#052C59] text-white text-xs font-bold rounded-xl shadow-md cursor-pointer transition"
+                  disabled={isSavingArticle}
+                  className="px-6 py-2.5 bg-[#073B75] hover:bg-[#052C59] text-white text-xs font-bold rounded-xl shadow-md cursor-pointer transition flex items-center gap-2 disabled:opacity-60"
                 >
-                  Simpan &amp; Publikasikan
+                  {isSavingArticle && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isSavingArticle ? 'Menyimpan...' : 'Simpan & Publikasikan'}</span>
                 </button>
               </div>
             </form>
@@ -1400,19 +1506,19 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
       {/* Password Change Modal */}
       {isCredModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 animate-fadeIn">
             <h3 className="text-sm font-bold text-slate-800 font-display mb-1 flex items-center gap-2">
               <Key className="w-4 h-4 text-amber-500" />
               <span>Ganti Akun &amp; Password Admin</span>
             </h3>
-            <p className="text-[11px] text-slate-500 mb-4">
-              Kredensial baru akan otomatis tersinkronisasi terpusat ke Supabase Cloud dan berlaku di semua perangkat.
+            <p className="text-[11px] text-slate-500 mb-3">
+              Perbarui kredensial akun login panel admin. Password baru otomatis tersimpan dan berlaku di seluruh perangkat.
             </p>
 
             {credSuccess && (
               <div className="mb-3 p-2.5 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-xl flex items-center gap-1.5 border border-emerald-200">
-                <Check className="w-4 h-4" /> 
-                <span>Kredensial berhasil diperbarui &amp; disinkronkan!</span>
+                <Check className="w-4 h-4 text-emerald-600" /> 
+                <span>Kredensial berhasil diperbarui!</span>
               </div>
             )}
 
@@ -1424,7 +1530,7 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
                   required
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-[#073B75]"
                 />
               </div>
 
@@ -1470,10 +1576,10 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
                   {isSavingCreds ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Menyimpan ke Cloud...</span>
+                      <span>Menyimpan...</span>
                     </>
                   ) : (
-                    <span>Simpan &amp; Sinkronkan</span>
+                    <span>Simpan Perubahan</span>
                   )}
                 </button>
               </div>

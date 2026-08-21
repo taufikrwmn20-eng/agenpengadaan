@@ -225,8 +225,18 @@ export const fetchArticlesAsync = async (): Promise<InformationItem[]> => {
     const cloudArticles = await fetchArticlesFromCloud();
     if (cloudArticles !== null && Array.isArray(cloudArticles)) {
       if (cloudArticles.length > 0) {
-        saveAllArticles(cloudArticles, false); // save locally without re-triggering cloud upload
-        return cloudArticles;
+        // Merge cloud with local, taking strictly newer version of each article by createdAt
+        const mergedMap = new Map<string, InformationItem>();
+        localArticles.forEach(a => mergedMap.set(a.id, a));
+        cloudArticles.forEach(ca => {
+          const existing = mergedMap.get(ca.id);
+          if (!existing || (ca.createdAt && ca.createdAt > (existing.createdAt || 0))) {
+            mergedMap.set(ca.id, ca);
+          }
+        });
+        const merged = Array.from(mergedMap.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        saveAllArticles(merged, false);
+        return merged;
       } else if (localArticles.length > 0) {
         // First-time seed to cloud if cloud table is empty
         seedAllArticlesToCloud(localArticles);
@@ -272,7 +282,7 @@ export const incrementArticleViews = (slugOrId: string): number => {
   return 0;
 };
 
-export const addArticleComment = (slugOrId: string, authorName: string, email: string, commentText: string): InformationItem | null => {
+export const addArticleComment = async (slugOrId: string, authorName: string, email: string, commentText: string): Promise<InformationItem | null> => {
   const articles = getStoredArticles();
   const index = articles.findIndex((a) => a.slug === slugOrId || a.id === slugOrId);
   if (index !== -1) {
@@ -291,35 +301,45 @@ export const addArticleComment = (slugOrId: string, authorName: string, email: s
       articles[index].comments = [];
     }
     articles[index].comments.unshift(newComment);
+    articles[index].createdAt = Date.now();
     saveAllArticles(articles, false);
-    upsertArticleToCloud(articles[index]).catch(() => {});
+    try {
+      await upsertArticleToCloud(articles[index]);
+    } catch (e) {
+      console.warn('Cloud sync error on addComment:', e);
+    }
     return articles[index];
   }
   return null;
 };
 
-export const toggleHideComment = (articleIdOrSlug: string, commentId: string): boolean => {
+export const toggleHideComment = async (articleIdOrSlug: string, commentId: string): Promise<boolean> => {
   const articles = getStoredArticles();
   const index = articles.findIndex((a) => a.id === articleIdOrSlug || a.slug === articleIdOrSlug);
   if (index !== -1 && articles[index].comments) {
     const cIdx = articles[index].comments.findIndex((c) => c.id === commentId);
     if (cIdx !== -1) {
       articles[index].comments[cIdx].isHidden = !articles[index].comments[cIdx].isHidden;
+      articles[index].createdAt = Date.now();
       saveAllArticles(articles, false);
-      upsertArticleToCloud(articles[index]).catch(() => {});
+      try {
+        await upsertArticleToCloud(articles[index]);
+      } catch (e) {
+        console.warn('Cloud sync error on toggleHide:', e);
+      }
       return true;
     }
   }
   return false;
 };
 
-export const replyToComment = (
+export const replyToComment = async (
   articleIdOrSlug: string,
   commentId: string,
   replyText: string,
   authorName: string = 'Admin PT. APN',
   role: string = 'Representasi Resmi'
-): boolean => {
+): Promise<boolean> => {
   const articles = getStoredArticles();
   const index = articles.findIndex((a) => a.id === articleIdOrSlug || a.slug === articleIdOrSlug);
   if (index !== -1 && articles[index].comments) {
@@ -331,7 +351,7 @@ export const replyToComment = (
       const newReply = {
         id: 'rpl-' + Date.now(),
         authorName: authorName.trim() || 'Admin PT. APN',
-        role: role.trim() || 'Tim Ahli Pengadaan',
+        role: role.trim() || 'Tim Ahli PBJ',
         comment: replyText.trim(),
         createdAt: formattedDate
       };
@@ -340,22 +360,27 @@ export const replyToComment = (
         articles[index].comments[cIdx].replies = [];
       }
       articles[index].comments[cIdx].replies!.push(newReply);
+      articles[index].createdAt = Date.now();
       saveAllArticles(articles, false);
-      upsertArticleToCloud(articles[index]).catch(() => {});
+      try {
+        await upsertArticleToCloud(articles[index]);
+      } catch (e) {
+        console.warn('Cloud sync error on replyToComment:', e);
+      }
       return true;
     }
   }
   return false;
 };
 
-export const updateCommentReply = (
+export const updateCommentReply = async (
   articleIdOrSlug: string,
   commentId: string,
   replyId: string,
   replyText: string,
   authorName?: string,
   role?: string
-): boolean => {
+): Promise<boolean> => {
   const articles = getStoredArticles();
   const index = articles.findIndex((a) => a.id === articleIdOrSlug || a.slug === articleIdOrSlug);
   if (index !== -1 && articles[index].comments) {
@@ -373,8 +398,13 @@ export const updateCommentReply = (
           comment: replyText.trim(),
           createdAt: formattedDate
         };
+        articles[index].createdAt = Date.now();
         saveAllArticles(articles, false);
-        upsertArticleToCloud(articles[index]).catch(() => {});
+        try {
+          await upsertArticleToCloud(articles[index]);
+        } catch (e) {
+          console.warn('Cloud sync error on updateCommentReply:', e);
+        }
         return true;
       }
     }
@@ -382,45 +412,59 @@ export const updateCommentReply = (
   return false;
 };
 
-export const deleteComment = (articleIdOrSlug: string, commentId: string): boolean => {
+export const deleteComment = async (articleIdOrSlug: string, commentId: string): Promise<boolean> => {
   const articles = getStoredArticles();
   const index = articles.findIndex((a) => a.id === articleIdOrSlug || a.slug === articleIdOrSlug);
   if (index !== -1 && articles[index].comments) {
     articles[index].comments = articles[index].comments.filter((c) => c.id !== commentId);
+    articles[index].createdAt = Date.now();
     saveAllArticles(articles, false);
-    upsertArticleToCloud(articles[index]).catch(() => {});
+    try {
+      await upsertArticleToCloud(articles[index]);
+    } catch (e) {
+      console.warn('Cloud sync error on deleteComment:', e);
+    }
     return true;
   }
   return false;
 };
 
-export const deleteCommentReply = (articleIdOrSlug: string, commentId: string, replyId: string): boolean => {
+export const deleteCommentReply = async (articleIdOrSlug: string, commentId: string, replyId: string): Promise<boolean> => {
   const articles = getStoredArticles();
   const index = articles.findIndex((a) => a.id === articleIdOrSlug || a.slug === articleIdOrSlug);
   if (index !== -1 && articles[index].comments) {
     const cIdx = articles[index].comments.findIndex((c) => c.id === commentId);
     if (cIdx !== -1 && articles[index].comments[cIdx].replies) {
       articles[index].comments[cIdx].replies = articles[index].comments[cIdx].replies!.filter((r) => r.id !== replyId);
+      articles[index].createdAt = Date.now();
       saveAllArticles(articles, false);
-      upsertArticleToCloud(articles[index]).catch(() => {});
+      try {
+        await upsertArticleToCloud(articles[index]);
+      } catch (e) {
+        console.warn('Cloud sync error on deleteCommentReply:', e);
+      }
       return true;
     }
   }
   return false;
 };
 
-export const deleteArticleById = (id: string): boolean => {
+export const deleteArticleById = async (id: string): Promise<boolean> => {
   const articles = getStoredArticles();
   const filtered = articles.filter((a) => a.id !== id);
   if (filtered.length !== articles.length) {
     saveAllArticles(filtered, false);
-    deleteArticleFromCloud(id).catch(() => {});
+    try {
+      await deleteArticleFromCloud(id);
+    } catch (e) {
+      console.warn('Cloud sync error on deleteArticle:', e);
+    }
     return true;
   }
   return false;
 };
 
-export const upsertArticle = (article: Partial<InformationItem> & { title: string }): InformationItem => {
+export const upsertArticle = async (article: Partial<InformationItem> & { title: string }): Promise<InformationItem> => {
   const articles = getStoredArticles();
   
   // Format slug
@@ -443,14 +487,19 @@ export const upsertArticle = (article: Partial<InformationItem> & { title: strin
       const updated: InformationItem = {
         ...articles[index],
         ...article,
-        slug,
+        slug: article.slug || articles[index].slug || slug,
         day: dayStr,
         month: monthStr,
         date: dateStr,
+        createdAt: Date.now()
       };
       articles[index] = updated;
       saveAllArticles(articles, false);
-      upsertArticleToCloud(updated).catch(() => {});
+      try {
+        await upsertArticleToCloud(updated);
+      } catch (e) {
+        console.warn('Cloud sync error on update:', e);
+      }
       return updated;
     }
   }
@@ -468,7 +517,7 @@ export const upsertArticle = (article: Partial<InformationItem> & { title: strin
     readTime: article.readTime || '4 min',
     imageUrl: article.imageUrl || 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1200&q=80',
     imageCaption: article.imageCaption || '',
-    summary: article.summary || article.content?.slice(0, 180) + '...' || '',
+    summary: article.summary || article.content?.replace(/<[^>]*>/g, '').slice(0, 180) + '...' || '',
     content: article.content || '',
     postViews: article.postViews || 1,
     comments: [],
@@ -477,7 +526,11 @@ export const upsertArticle = (article: Partial<InformationItem> & { title: strin
 
   articles.unshift(newItem);
   saveAllArticles(articles, false);
-  upsertArticleToCloud(newItem).catch(() => {});
+  try {
+    await upsertArticleToCloud(newItem);
+  } catch (e) {
+    console.warn('Cloud sync error on create:', e);
+  }
   return newItem;
 };
 
