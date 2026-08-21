@@ -306,8 +306,8 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
       title: 'Hapus Publikasi / Artikel',
       message: `Apakah Anda yakin ingin menghapus artikel "${title}" beserta seluruh datanya? Tindakan ini permanen.`,
       confirmText: 'Ya, Hapus Artikel',
-      onConfirm: () => {
-        deleteArticleById(id);
+      onConfirm: async () => {
+        await deleteArticleById(id);
         onRefreshArticles();
         setConfirmModal((prev) => ({ ...prev, isOpen: false }));
         showToast(`Artikel "${title}" berhasil dihapus.`);

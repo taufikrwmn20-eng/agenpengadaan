@@ -190,63 +190,53 @@ const STORAGE_KEY = 'apn_information_articles_v1';
 const ADMIN_AUTH_KEY = 'apn_admin_session_v1';
 
 export const getStoredArticles = (): InformationItem[] => {
-  if (typeof window === 'undefined') return INITIAL_ARTICLES_DATA;
+  if (typeof window === 'undefined') return [];
+  const config = getSupabaseConfig();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
+      if (config.isConfigured) {
+        return [];
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_ARTICLES_DATA));
       return INITIAL_ARTICLES_DATA;
     }
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
+    if (Array.isArray(parsed)) {
       return parsed;
     }
-    return INITIAL_ARTICLES_DATA;
+    return [];
   } catch (e) {
     console.error('Error loading articles from localStorage', e);
-    return INITIAL_ARTICLES_DATA;
+    return [];
   }
 };
 
 /**
  * Asynchronously fetch articles from Supabase Cloud Database.
- * If connected, updates local cache and returns latest data.
+ * If connected, the cloud database is the single source of truth and updates local cache.
  * If not connected, returns local data.
  */
 export const fetchArticlesAsync = async (): Promise<InformationItem[]> => {
-  const localArticles = getStoredArticles();
   const config = getSupabaseConfig();
   
   if (!config.isConfigured) {
-    return localArticles;
+    return getStoredArticles();
   }
 
   try {
     const cloudArticles = await fetchArticlesFromCloud();
     if (cloudArticles !== null && Array.isArray(cloudArticles)) {
-      if (cloudArticles.length > 0) {
-        // Merge cloud with local, taking strictly newer version of each article by createdAt
-        const mergedMap = new Map<string, InformationItem>();
-        localArticles.forEach(a => mergedMap.set(a.id, a));
-        cloudArticles.forEach(ca => {
-          const existing = mergedMap.get(ca.id);
-          if (!existing || (ca.createdAt && ca.createdAt > (existing.createdAt || 0))) {
-            mergedMap.set(ca.id, ca);
-          }
-        });
-        const merged = Array.from(mergedMap.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-        saveAllArticles(merged, false);
-        return merged;
-      } else if (localArticles.length > 0) {
-        // First-time seed to cloud if cloud table is empty
-        seedAllArticlesToCloud(localArticles);
-      }
+      // Cloud database is the absolute single source of truth.
+      // Persist exactly what is in the cloud database so deleted articles are permanently wiped from cache.
+      saveAllArticles(cloudArticles, false);
+      return cloudArticles;
     }
   } catch (err) {
     console.warn('Cloud sync error, using local fallback:', err);
   }
 
-  return localArticles;
+  return getStoredArticles();
 };
 
 export const saveAllArticles = (articles: InformationItem[], syncCloud = true) => {

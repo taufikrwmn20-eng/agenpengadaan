@@ -30,7 +30,7 @@ export default function App() {
     
     // Asynchronously fetch from cloud
     fetchArticlesAsync().then((cloudData) => {
-      if (cloudData && cloudData.length > 0) {
+      if (Array.isArray(cloudData)) {
         setArticles(cloudData);
       }
     });
