@@ -129,7 +129,7 @@ export const AboutSection: React.FC<AboutSectionProps> = () => {
                   </div>
 
                   <div className="p-4 bg-white/10 rounded-2xl border border-white/15 backdrop-blur-xs text-xs text-slate-200 leading-relaxed">
-                    Praktisi dan pakar hukum pengadaan barang/jasa publik yang memimpin operasional PT. Agen Pengadaan Nasional dengan standar kepatuhan regulasi mutlak, mitigasi risiko sengketa, dan perlindungan hukum bagi pengguna jasa.
+                    {FOUNDER_DIRECTOR_PROFILE.bio}
                   </div>
 
                   <div className="pt-2 flex items-center gap-2 text-xs text-orange-300 font-semibold">

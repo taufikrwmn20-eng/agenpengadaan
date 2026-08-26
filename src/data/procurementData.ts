@@ -425,8 +425,8 @@ export const EXPERT_TEAM: ExpertTeamMember[] = [
 export const FOUNDER_DIRECTOR_PROFILE = {
   name: 'Didi Nahtadi, S.Sy., M.H.',
   role: 'Direktur',
-  titleDesc: 'Pakar Hukum Pengadaan Barang/Jasa Pemerintah & Legal Drafter Senior',
-  bio: 'Praktisi dan pakar hukum pengadaan barang/jasa publik dengan rekam jejak panjang dalam pendampingan hukum, penyelesaian sengketa kontrak, bimbingan teknis nasional, serta review proyek strategis KPBU kementerian.',
+  titleDesc: 'Konsultan Hukum dan Pengadaan Barang/Jasa',
+  bio: 'Praktisi dan konsultan hukum dan pengadaan barang/jasa yang memimpin operasional PT. Agen Pengadaan Nasional dengan standar kepatuhan regulasi mutlak, mitigasi risiko sengketa, dan perlindungan hukum bagi pengguna jasa.',
   experiences: [
     {
       title: 'Pendampingan Hukum Litigasi PBJ',
