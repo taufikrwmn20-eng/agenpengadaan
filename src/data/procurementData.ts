@@ -426,14 +426,14 @@ export const FOUNDER_DIRECTOR_PROFILE = {
   name: 'Didi Nahtadi, S.Sy., M.H.',
   role: 'Direktur',
   titleDesc: 'Konsultan Hukum dan Pengadaan Barang/Jasa',
-  bio: 'Praktisi dan konsultan hukum dan pengadaan barang/jasa yang memimpin operasional PT. Agen Pengadaan Nasional dengan standar kepatuhan regulasi mutlak, mitigasi risiko sengketa, dan perlindungan hukum bagi pengguna jasa.',
+  bio: 'Praktisi dan konsultan hukum pengadaan barang/jasa yang memimpin operasional PT. Agen Pengadaan Nasional dengan standar kepatuhan regulasi mutlak, mitigasi risiko sengketa, dan perlindungan hukum bagi pengguna jasa.',
   experiences: [
     {
-      title: 'Pendampingan Hukum Litigasi PBJ',
-      desc: 'Pendampingan Permasalahan Hukum Pengadaan Barang/Jasa Pemerintah pada Tahap Penyelidikan, Penyidikan, dan Persidangan',
+      title: 'Pendampingan Hukum Non Litigasi PBJ',
+      desc: 'Pendampingan Permasalahan Hukum Pengadaan Barang/Jasa Pemerintah pada Tahap Non Litigasi',
       highlight: '> 30 Kasus',
       metric: '30+',
-      metricUnit: 'Kasus Litigasi',
+      metricUnit: 'Kasus Non Litigasi',
       iconName: 'Scale'
     },
     {
