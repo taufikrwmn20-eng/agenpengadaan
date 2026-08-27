@@ -469,8 +469,8 @@ export const FOUNDER_DIRECTOR_PROFILE = {
       iconName: 'FileCheck'
     },
     {
-      title: 'Review Pengadaan KPBU Kementerian PUPR',
-      desc: 'Tim Review Kelengkapan dan Dokumen Pengadaan Kerjasama Pemerintah dengan Badan Usaha (KPBU) Kementerian PUPR',
+      title: 'Review Pengadaan KPBU',
+      desc: 'Tim Review Kelengkapan dan Dokumen Pengadaan Kerjasama Pemerintah dengan Badan Usaha (KPBU)',
       highlight: '> 10 Proyek',
       metric: '10+',
       metricUnit: 'Proyek KPBU',
