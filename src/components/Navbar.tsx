@@ -77,7 +77,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'hero', label: 'Beranda' },
     { id: 'layanan', label: 'Layanan' },
     { id: 'tentang', label: 'Tentang Kami' },
-    { id: 'informasi', label: 'Informasi' },
+    // { id: 'informasi', label: 'Informasi' }, // Sembunyikan sementara
   ];
 
   return (

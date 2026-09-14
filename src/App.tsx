@@ -213,12 +213,12 @@ export default function App() {
               onOpenConsultation={handleOpenConsultation}
             />
 
-            {/* Informasi & Blog (Top 3 Berita & Artikel Terkini - Format Sesuai Gambar 1) */}
-            <InformationSection
+            {/* Informasi & Blog (Disembunyikan sementara) */}
+            {/* <InformationSection
               articles={articles}
               onSelectArticle={handleSelectArticle}
               onViewAll={handleViewAllArticles}
-            />
+            /> */}
           </>
         )}
       </main>
