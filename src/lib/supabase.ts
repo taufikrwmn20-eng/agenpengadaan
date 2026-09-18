@@ -447,20 +447,43 @@ CREATE TABLE IF NOT EXISTS app_settings (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. AKTIFKAN KEAMANAN (ROW LEVEL SECURITY)
+-- 3. BUAT TABEL VERIFIKASI SERTIFIKAT DIGITAL PT. APN
+CREATE TABLE IF NOT EXISTS certificates (
+  id TEXT PRIMARY KEY,
+  certificate_number TEXT NOT NULL,
+  recipient_name TEXT NOT NULL,
+  recipient_agency TEXT,
+  recipient_role TEXT DEFAULT 'Peserta',
+  event_name TEXT NOT NULL,
+  issue_date TEXT NOT NULL,
+  status TEXT DEFAULT 'valid',
+  batch_id TEXT,
+  batch_name TEXT,
+  verification_url TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4. AKTIFKAN KEAMANAN (ROW LEVEL SECURITY)
 ALTER TABLE articles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE certificates ENABLE ROW LEVEL SECURITY;
 
--- 4. HAPUS POLICY LAMA (AGAR TIDAK DUPLIKAT)
+-- 5. HAPUS POLICY LAMA (AGAR TIDAK DUPLIKAT)
 DROP POLICY IF EXISTS "Public Read All" ON articles;
 DROP POLICY IF EXISTS "Public Write All" ON articles;
 DROP POLICY IF EXISTS "Public Settings Read" ON app_settings;
 DROP POLICY IF EXISTS "Public Settings Write" ON app_settings;
+DROP POLICY IF EXISTS "Public Read Certificates" ON certificates;
+DROP POLICY IF EXISTS "Public Write Certificates" ON certificates;
 
--- 5. BUAT POLICY IZIN BACA & TULIS
+-- 6. BUAT POLICY IZIN BACA & TULIS
 CREATE POLICY "Public Read All" ON articles FOR SELECT USING (true);
 CREATE POLICY "Public Write All" ON articles FOR ALL USING (true) WITH CHECK (true);
 
 CREATE POLICY "Public Settings Read" ON app_settings FOR SELECT USING (true);
 CREATE POLICY "Public Settings Write" ON app_settings FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Public Read Certificates" ON certificates FOR SELECT USING (true);
+CREATE POLICY "Public Write Certificates" ON certificates FOR ALL USING (true) WITH CHECK (true);
 `;

@@ -11,12 +11,14 @@ interface FooterProps {
   onOpenConsultation: (topic?: string) => void;
   onScrollToSection: (sectionId: string) => void;
   onOpenAdmin?: () => void;
+  onOpenVerification?: () => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({ 
   onOpenConsultation, 
   onScrollToSection,
-  onOpenAdmin
+  onOpenAdmin,
+  onOpenVerification
 }) => {
   const handleServiceClick = (service: typeof SERVICES_DATA[0]) => {
     if (service.isDirectWhatsApp || service.id === 'konsultasi-langsung') {
@@ -133,7 +135,7 @@ export const Footer: React.FC<FooterProps> = ({
               </div>
             </div>
 
-            <div className="pt-3">
+            <div className="pt-3 space-y-2">
               <button
                 onClick={() => onOpenConsultation('Konsultasi via Footer WhatsApp')}
                 className="w-full py-2.5 px-3.5 bg-[#10B981] hover:bg-[#059669] text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
@@ -141,6 +143,16 @@ export const Footer: React.FC<FooterProps> = ({
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span>Konsultasi WhatsApp</span>
               </button>
+
+              {onOpenVerification && (
+                <button
+                  onClick={onOpenVerification}
+                  className="w-full py-2 px-3.5 bg-white hover:bg-slate-50 text-[#073B75] border border-blue-200 font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Cek Keaslian Sertifikat</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

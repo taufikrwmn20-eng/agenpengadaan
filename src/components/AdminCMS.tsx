@@ -7,7 +7,8 @@ import {
   Upload, FileUp, Sparkles, AlertCircle, Link as LinkIcon,
   Reply, MessageCircle, Search, Filter, CheckCircle2,
   CornerDownRight, ChevronRight, ShieldCheck, Mail,
-  Cloud, Database, Copy, HelpCircle, CheckCircle, ExternalLink
+  Cloud, Database, Copy, HelpCircle, CheckCircle, ExternalLink,
+  Award, QrCode
 } from 'lucide-react';
 import { 
   checkAdminAuth, loginAdmin, logoutAdmin, 
@@ -21,6 +22,8 @@ import {
   normalizeSupabaseUrl, SUPABASE_SETUP_SQL 
 } from '../lib/supabase';
 import { WYSIWYGEditor } from './WYSIWYGEditor';
+import { CertificateManagerCMS } from './CertificateManagerCMS';
+import { CertificateVerificationModal } from './CertificateVerificationModal';
 
 interface AdminCMSProps {
   articles: InformationItem[];
@@ -41,8 +44,12 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
 
-  // Active Tab: 'articles' or 'comments'
-  const [activeTab, setActiveTab] = useState<'articles' | 'comments'>('articles');
+  // Active Tab: 'articles' | 'comments' | 'certificates'
+  const [activeTab, setActiveTab] = useState<'articles' | 'comments' | 'certificates'>('articles');
+
+  // Certificate Verification Preview Modal
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+  const [verifyModalQuery, setVerifyModalQuery] = useState('');
 
   // Comment Moderation Filters & State
   const [commentSearch, setCommentSearch] = useState('');
@@ -644,6 +651,18 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
                 {totalCommentsCount}
               </span>
             </button>
+
+            <button
+              onClick={() => setActiveTab('certificates')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                activeTab === 'certificates'
+                  ? 'bg-[#073B75] text-white shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+              }`}
+            >
+              <Award className="w-3.5 h-3.5 text-amber-400" />
+              <span>Sertifikat Digital</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1229,7 +1248,25 @@ export const AdminCMS: React.FC<AdminCMSProps> = ({
             )}
           </div>
         )}
+
+        {/* TAB 3: CERTIFICATES MANAGEMENT */}
+        {activeTab === 'certificates' && (
+          <CertificateManagerCMS
+            onShowToast={showToast}
+            onPreviewVerifyModal={(certId) => {
+              setVerifyModalQuery(certId);
+              setIsVerifyModalOpen(true);
+            }}
+          />
+        )}
       </main>
+
+      {/* Public Certificate Verification Modal */}
+      <CertificateVerificationModal
+        isOpen={isVerifyModalOpen}
+        initialQuery={verifyModalQuery}
+        onClose={() => setIsVerifyModalOpen(false)}
+      />
 
       {/* Editor Modal (Create / Edit) */}
       {isEditorOpen && (

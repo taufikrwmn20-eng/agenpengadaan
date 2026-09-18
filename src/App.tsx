@@ -10,6 +10,7 @@ import { AdminCMS } from './components/AdminCMS';
 import { Footer } from './components/Footer';
 import { WhatsAppConsultModal } from './components/WhatsAppConsultModal';
 import { FloatingWhatsApp } from './components/FloatingWhatsApp';
+import { CertificateVerificationModal } from './components/CertificateVerificationModal';
 import { InformationItem } from './types';
 import { getStoredArticles, fetchArticlesAsync } from './data/informationData';
 
@@ -22,6 +23,22 @@ export default function App() {
   const [isConsultModalOpen, setIsConsultModalOpen] = useState(false);
   const [consultationTopic, setConsultationTopic] = useState('Konsultasi Pengadaan Barang/Jasa');
   const [activeSection, setActiveSection] = useState('hero');
+
+  // Certificate Verification Modal State (Auto open if URL has ?verify=... or ?sertifikat=...)
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
+  const [verifyQuery, setVerifyQuery] = useState('');
+
+  // Check URL query parameters on load
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const verifyParam = urlParams.get('verify') || urlParams.get('sertifikat') || urlParams.get('cert');
+      if (verifyParam) {
+        setVerifyQuery(verifyParam);
+        setIsVerifyModalOpen(true);
+      }
+    }
+  }, []);
 
   // Load articles from localStorage/default dataset and sync with Cloud
   const refreshArticles = () => {
@@ -229,6 +246,10 @@ export default function App() {
           onOpenConsultation={handleOpenConsultation}
           onScrollToSection={handleScrollToSection}
           onOpenAdmin={handleOpenAdmin}
+          onOpenVerification={() => {
+            setVerifyQuery('');
+            setIsVerifyModalOpen(true);
+          }}
         />
       )}
 
@@ -245,6 +266,19 @@ export default function App() {
           onOpenConsultationModal={() => handleOpenConsultation('Konsultasi Langsung via WhatsApp')}
         />
       )}
+
+      {/* 6. Public Certificate Verification Modal */}
+      <CertificateVerificationModal
+        isOpen={isVerifyModalOpen}
+        initialQuery={verifyQuery}
+        onClose={() => {
+          setIsVerifyModalOpen(false);
+          // Clean URL param gracefully if present
+          if (typeof window !== 'undefined' && window.location.search.includes('verify')) {
+            window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+          }
+        }}
+      />
     </div>
   );
 }

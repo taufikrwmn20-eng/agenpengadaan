@@ -36,9 +36,18 @@ export const InformationDetailView: React.FC<InformationDetailViewProps> = ({
   const [commentSuccess, setCommentSuccess] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
-  // Increment views & load freshest comments on load or slug change
+  // Increment views & load freshest comments on load or slug change, plus update document title for SEO
   useEffect(() => {
     if (article) {
+      const originalTitle = document.title;
+      document.title = `${article.title} | PT. Agen Pengadaan Nasional`;
+      
+      const metaDesc = document.querySelector('meta[name="description"]');
+      const originalDesc = metaDesc ? metaDesc.getAttribute('content') : '';
+      if (metaDesc && article.summary) {
+        metaDesc.setAttribute('content', article.summary.slice(0, 160));
+      }
+
       const updatedViews = incrementArticleViews(article.id);
       setViews(updatedViews || article.postViews + 1);
       
@@ -47,8 +56,15 @@ export const InformationDetailView: React.FC<InformationDetailViewProps> = ({
       const current = freshArticles.find((a) => a.id === article.id || a.slug === article.slug);
       setComments(current?.comments || article.comments || []);
       window.scrollTo(0, 0);
+
+      return () => {
+        document.title = originalTitle;
+        if (metaDesc && originalDesc) {
+          metaDesc.setAttribute('content', originalDesc);
+        }
+      };
     }
-  }, [slug, article?.id]);
+  }, [slug, article?.id, article?.title, article?.summary]);
 
   if (!article) {
     return (

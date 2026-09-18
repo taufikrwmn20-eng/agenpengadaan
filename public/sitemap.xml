@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Halaman Utama / Beranda -->
+  <url>
+    <loc>https://www.agenpengadaannasional.co.id/</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- Bagian Layanan & Informasi -->
+  <url>
+    <loc>https://www.agenpengadaannasional.co.id/#layanan</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://www.agenpengadaannasional.co.id/#informasi</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.agenpengadaannasional.co.id/#portofolio</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.agenpengadaannasional.co.id/#konsultasi</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.agenpengadaannasional.co.id/#verifikasi-sertifikat</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Artikel & Berita Pengadaan Nasional -->
+  <url>
+    <loc>https://www.agenpengadaannasional.co.id/#artikel/bagaimana-strategi-manajemen-pengadaan-barang-jasa-di-bumd-yang-tepat</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.agenpengadaannasional.co.id/#artikel/rahasia-kesuksesan-proyek-konstruksi-memadukan-manajemen-konstruksi-dengan-strategi-pengadaan-efektif</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.agenpengadaannasional.co.id/#artikel/optimalisasi-proses-pengadaan-dengan-memahami-landasan-hukum-dan-praktik-terbaik-untuk-organisasi</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.agenpengadaannasional.co.id/#artikel/sosialisasi-perpres-46-tahun-2025-dan-akselerasi-e-katalog-versi-6</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.agenpengadaannasional.co.id/#artikel/kegiatan-bimtek-penyusunan-hps-dan-manajemen-kontrak-konstruksi</loc>
+    <lastmod>2026-09-16</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>

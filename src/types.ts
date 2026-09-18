@@ -126,3 +126,76 @@ export interface InformationItem {
   createdAt: number;
 }
 
+// Certificate Generator & Verification Types
+export interface CertificateElementMapping {
+  x: number; // percentage 0 - 100
+  y: number; // percentage 0 - 100
+  fontSize: number; // relative size in px (base canvas 1920x1080)
+  color: string;
+  fontFamily: string;
+  fontWeight: string;
+  textAlign: 'center' | 'left' | 'right';
+  prefix?: string;
+  suffix?: string;
+  enabled?: boolean;
+}
+
+export interface CertificateQrMapping {
+  x: number; // percentage 0 - 100
+  y: number; // percentage 0 - 100
+  size: number; // size in px (base canvas 1920x1080)
+  colorDark?: string;
+  colorLight?: string;
+}
+
+export interface CertificateMappingConfig {
+  recipientName: CertificateElementMapping;
+  certificateNumber: CertificateElementMapping;
+  eventName: CertificateElementMapping;
+  issueDate: CertificateElementMapping;
+  qrCode: CertificateQrMapping;
+  paperSize?: 'auto' | 'A4' | 'F4';
+}
+
+export interface CertificateItem {
+  id: string; // Unique UUID for QR verification
+  certificateNumber: string;
+  recipientName: string;
+  recipientAgency?: string;
+  recipientRole?: string;
+  eventName: string;
+  issueDate: string;
+  status: 'valid' | 'revoked' | 'expired';
+  batchId?: string;
+  batchName?: string;
+  templateImageUrl?: string;
+  mappingConfig?: CertificateMappingConfig;
+  verificationUrl: string;
+  notes?: string;
+  createdAt: number;
+}
+
+export interface CertificateEvent {
+  id: string;
+  name: string;
+  date: string;
+  batchCode?: string;
+  organizer?: string;
+  templateImage?: string;
+  templateFileName?: string;
+  mappingConfig?: CertificateMappingConfig;
+  certificateCount?: number;
+  createdAt: number;
+}
+
+export interface CertificateBatch {
+  id: string;
+  batchName: string;
+  eventName: string;
+  issueDate: string;
+  templateImageUrl: string;
+  mappingConfig: CertificateMappingConfig;
+  totalCount: number;
+  createdAt: number;
+}
+
