@@ -594,12 +594,16 @@ export function deleteEventFromLocalStorage(id: string): CertificateEvent[] {
 }
 
 /**
- * Save Certificates to Supabase Cloud Database
+ * Save Certificates to Supabase Cloud Database with batch chunking
  */
 export async function saveCertificatesToCloud(certificates: CertificateItem[]): Promise<{ success: boolean; count: number; error?: string }> {
   const supabase = getSupabaseClient();
   if (!supabase) {
-    return { success: false, count: 0, error: 'Koneksi Supabase belum aktif. Data disimpan di penyimpanan lokal browser.' };
+    return { success: false, count: 0, error: 'Koneksi Supabase belum aktif. Data tersimpan di penyimpanan lokal browser.' };
+  }
+
+  if (!certificates || certificates.length === 0) {
+    return { success: true, count: 0 };
   }
 
   try {
@@ -611,7 +615,7 @@ export async function saveCertificatesToCloud(certificates: CertificateItem[]): 
       recipient_role: c.recipientRole || 'Peserta',
       event_name: c.eventName,
       issue_date: c.issueDate,
-      status: c.status,
+      status: c.status || 'valid',
       batch_id: c.batchId || '',
       batch_name: c.batchName || '',
       verification_url: c.verificationUrl,
@@ -619,18 +623,44 @@ export async function saveCertificatesToCloud(certificates: CertificateItem[]): 
       created_at: new Date(c.createdAt || Date.now()).toISOString()
     }));
 
-    const { error } = await supabase
-      .from('certificates')
-      .upsert(rows, { onConflict: 'id' });
+    // Chunk upserts into batches of 50 to avoid network payload limits & timeouts
+    const CHUNK_SIZE = 50;
+    let totalSaved = 0;
 
-    if (error) {
-      console.warn('Supabase certificates save error:', error.message);
-      return { success: false, count: 0, error: error.message };
+    for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+      const chunk = rows.slice(i, i + CHUNK_SIZE);
+      const { error } = await supabase
+        .from('certificates')
+        .upsert(chunk, { onConflict: 'id' });
+
+      if (error) {
+        console.warn(`Supabase certificates save error on chunk ${i}:`, error.message);
+        return { success: false, count: totalSaved, error: error.message };
+      }
+      totalSaved += chunk.length;
     }
 
-    return { success: true, count: rows.length };
+    return { success: true, count: totalSaved };
   } catch (err: any) {
     return { success: false, count: 0, error: err?.message || 'Network error saat menghubungi Supabase.' };
+  }
+}
+
+/**
+ * Get the exact count of certificates in Supabase Cloud
+ */
+export async function getCloudCertificatesCount(): Promise<number> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return 0;
+  try {
+    const { count, error } = await supabase.from('certificates').select('*', { count: 'exact', head: true });
+    if (error) {
+      console.warn('Error fetching Supabase certificates count:', error);
+      return 0;
+    }
+    return count || 0;
+  } catch {
+    return 0;
   }
 }
 

@@ -4,7 +4,7 @@ import {
   AlertCircle, Trash2, Eye, RefreshCw, Sparkles, Layers, Sliders, 
   Move, Plus, X, Search, FileText, Check, Copy, ExternalLink, ShieldCheck,
   FileType, Calendar, Edit2, Building2, BookmarkPlus, ArrowRight, ArrowLeft,
-  ChevronRight, Filter
+  ChevronRight, Filter, CloudUpload
 } from 'lucide-react';
 import { 
   CertificateItem, CertificateMappingConfig, CertificateEvent 
@@ -128,6 +128,30 @@ export const CertificateManagerCMS: React.FC<CertificateManagerCMSProps> = ({
   const [historySearch, setHistorySearch] = useState('');
   const [historyFilterStatus, setHistoryFilterStatus] = useState<'all' | 'valid' | 'revoked'>('all');
   const [historyFilterEvent, setHistoryFilterEvent] = useState<string>('all');
+  const [isSyncingToCloud, setIsSyncingToCloud] = useState(false);
+  const [isSyncedToCloud, setIsSyncedToCloud] = useState(false);
+
+  const handleSyncAllCertificatesToCloud = async () => {
+    setIsSyncingToCloud(true);
+    try {
+      const list = getSavedCertificatesFromLocalStorage();
+      if (list.length === 0) {
+        onShowToast('Tidak ada data sertifikat untuk dikirim ke Cloud.');
+        return;
+      }
+      const res = await saveCertificatesToCloud(list);
+      if (res.success) {
+        setIsSyncedToCloud(true);
+        onShowToast(`Sukses! ${res.count} sertifikat berhasil disimpan ke Supabase Cloud & siap verifikasi QR.`);
+      } else {
+        onShowToast(`Peringatan: ${res.error || 'Gagal menyimpan ke Supabase Cloud'}`);
+      }
+    } catch (err: any) {
+      onShowToast(`Gagal: ${err?.message || 'Error koneksi database'}`);
+    } finally {
+      setIsSyncingToCloud(false);
+    }
+  };
 
   // In-App Confirmation Modal State (replaces window.confirm to avoid iframe sandbox restrictions)
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -172,6 +196,10 @@ export const CertificateManagerCMS: React.FC<CertificateManagerCMSProps> = ({
   const loadSavedHistory = () => {
     const list = getSavedCertificatesFromLocalStorage();
     setSavedCertificates(list);
+    // Silent background auto-sync so QR code verification always stays up-to-date
+    if (list.length > 0) {
+      saveCertificatesToCloud(list).catch(() => {});
+    }
   };
 
   // Helper to count printed certificates per event
@@ -2051,6 +2079,35 @@ export const CertificateManagerCMS: React.FC<CertificateManagerCMSProps> = ({
                   {mapping.paperSize === 'A4' ? 'A4 (297×210 mm)' : mapping.paperSize === 'F4' ? 'F4 / Folio (330×215 mm)' : 'Auto (Template Asli)'}
                 </span>
               </div>
+
+              {/* Tombol Cepat Kirim ke Cloud (Opsi 1) */}
+              <button
+                onClick={handleSyncAllCertificatesToCloud}
+                disabled={isSyncingToCloud || savedCertificates.length === 0}
+                className={`px-4 py-3 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:shadow disabled:opacity-50 ${
+                  isSyncedToCloud 
+                    ? 'bg-emerald-700 text-white' 
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
+                title="Kirim semua data sertifikat ke database Supabase Cloud agar QR code sah diverifikasi secara publik"
+              >
+                {isSyncingToCloud ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                    <span>Menyimpan ke Cloud...</span>
+                  </>
+                ) : isSyncedToCloud ? (
+                  <>
+                    <ShieldCheck className="w-4 h-4 text-emerald-200" />
+                    <span>✓ Tersimpan di Cloud ({savedCertificates.length})</span>
+                  </>
+                ) : (
+                  <>
+                    <CloudUpload className="w-4 h-4 text-emerald-100" />
+                    <span>Kirim ke Cloud ({savedCertificates.length})</span>
+                  </>
+                )}
+              </button>
 
               <button
                 onClick={handleDownloadAllZipFromTier4}
