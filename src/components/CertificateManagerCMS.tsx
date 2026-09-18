@@ -139,7 +139,29 @@ export const CertificateManagerCMS: React.FC<CertificateManagerCMSProps> = ({
         onShowToast('Tidak ada data sertifikat untuk dikirim ke Cloud.');
         return;
       }
-      const res = await saveCertificatesToCloud(list);
+
+      // Heal and ensure every certificate has a valid non-null ID
+      let didFixIds = false;
+      const sanitizedList: CertificateItem[] = list.map((item, idx) => {
+        if (!item.id || typeof item.id !== 'string' || !item.id.trim()) {
+          didFixIds = true;
+          const cleanNum = (item.certificateNumber || `APN-${idx + 1}`).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+          const generatedId = `cert-${cleanNum || 'apn'}-${idx + 1}`;
+          return {
+            ...item,
+            id: generatedId,
+            verificationUrl: getVerificationUrl(generatedId)
+          };
+        }
+        return item;
+      });
+
+      if (didFixIds) {
+        saveCertificatesToLocalStorage(sanitizedList);
+        setSavedCertificates(sanitizedList);
+      }
+
+      const res = await saveCertificatesToCloud(sanitizedList);
       if (res.success) {
         setIsSyncedToCloud(true);
         onShowToast(`Sukses! ${res.count} sertifikat berhasil disimpan ke Supabase Cloud & siap verifikasi QR.`);
@@ -615,23 +637,26 @@ export const CertificateManagerCMS: React.FC<CertificateManagerCMSProps> = ({
     const now = Date.now();
     const batchId = selectedEventId || 'batch-' + now;
 
-    const certificateItemsToSave: CertificateItem[] = participants.map((p) => ({
-      id: p.id,
-      certificateNumber: p.certificateNumber,
-      recipientName: p.recipientName,
-      recipientAgency: "",
-      recipientRole: p.recipientRole,
-      eventName: eventName || 'Kegiatan APN',
-      issueDate: issueDate || '2026',
-      status: 'valid',
-      batchId,
-      batchName: batchName || eventName,
-      // DO NOT STORE templateImageUrl and mappingConfig to prevent LocalStorage QuotaExceededError
-      // templateImageUrl: templateImage,
-      // mappingConfig: mapping,
-      verificationUrl: getVerificationUrl(p.id),
-      createdAt: now
-    }));
+    const certificateItemsToSave: CertificateItem[] = participants.map((p, idx) => {
+      const pId = (p as any).id || `cert-${(p.certificateNumber || 'apn').replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}-${idx + 1}`;
+      return {
+        id: pId,
+        certificateNumber: p.certificateNumber,
+        recipientName: p.recipientName,
+        recipientAgency: "",
+        recipientRole: p.recipientRole,
+        eventName: eventName || 'Kegiatan APN',
+        issueDate: issueDate || '2026',
+        status: 'valid',
+        batchId,
+        batchName: batchName || eventName,
+        // DO NOT STORE templateImageUrl and mappingConfig to prevent LocalStorage QuotaExceededError
+        // templateImageUrl: templateImage,
+        // mappingConfig: mapping,
+        verificationUrl: getVerificationUrl(pId),
+        createdAt: now
+      };
+    });
 
     try {
       // 1. Save to LocalStorage

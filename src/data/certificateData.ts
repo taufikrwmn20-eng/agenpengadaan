@@ -300,7 +300,10 @@ export async function parseExcelOrCsvFile(file: File): Promise<Array<{
           const agency = findVal('instansi', 'lembaga', 'perusahaan', 'kantor', 'organisasi');
           const role = findVal('peran', 'kategori', 'role') || 'Peserta';
 
+          const genId = 'cert-' + (certNo ? certNo.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() : Math.random().toString(36).substring(2, 9)) + '-' + (index + 1);
+
           return {
+            id: genId,
             certificateNumber: certNo,
             recipientName: name,
             recipientAgency: agency,
@@ -607,21 +610,27 @@ export async function saveCertificatesToCloud(certificates: CertificateItem[]): 
   }
 
   try {
-    const rows = certificates.map(c => ({
-      id: c.id,
-      certificate_number: c.certificateNumber,
-      recipient_name: c.recipientName,
-      recipient_agency: c.recipientAgency || '',
-      recipient_role: c.recipientRole || 'Peserta',
-      event_name: c.eventName,
-      issue_date: c.issueDate,
-      status: c.status || 'valid',
-      batch_id: c.batchId || '',
-      batch_name: c.batchName || '',
-      verification_url: c.verificationUrl,
-      notes: c.notes || '',
-      created_at: new Date(c.createdAt || Date.now()).toISOString()
-    }));
+    const rows = certificates.map((c, idx) => {
+      const safeId = (c.id && typeof c.id === 'string' && c.id.trim().length > 0)
+        ? c.id.trim()
+        : `cert-${(c.certificateNumber || 'apn').replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'item'}-${idx + 1}`;
+
+      return {
+        id: safeId,
+        certificate_number: c.certificateNumber || `APN-${idx + 1}`,
+        recipient_name: c.recipientName || 'Peserta',
+        recipient_agency: c.recipientAgency || '',
+        recipient_role: c.recipientRole || 'Peserta',
+        event_name: c.eventName || 'Kegiatan APN',
+        issue_date: c.issueDate || '2026',
+        status: c.status || 'valid',
+        batch_id: c.batchId || '',
+        batch_name: c.batchName || '',
+        verification_url: c.verificationUrl || getVerificationUrl(safeId),
+        notes: c.notes || '',
+        created_at: new Date(c.createdAt || Date.now()).toISOString()
+      };
+    });
 
     // Chunk upserts into batches of 50 to avoid network payload limits & timeouts
     const CHUNK_SIZE = 50;
