@@ -9,23 +9,15 @@ const CERTIFICATES_STORAGE_KEY = 'apn_certificates_v1';
 const BATCHES_STORAGE_KEY = 'apn_certificate_batches_v1';
 const EVENTS_STORAGE_KEY = 'apn_certificate_events_v1';
 
-// Initial default events list so user immediately has choices or can add new
+// Initial default events list: pre-populated with real event from Supabase Cloud
 export const INITIAL_DEFAULT_EVENTS: CertificateEvent[] = [
   {
-    id: 'evt-mitigasi-risiko-2026',
-    name: 'Bimbingan Teknis Strategis Mitigasi Risiko Hukum Kontrak Pengadaan',
-    date: '15 September 2026',
+    id: 'evt-1789721531860',
+    name: 'Transformasi Pengadaan Digital (Peran SPSE v5 dan Penguatan Indikator Pemanfaatan Sistem Pengadaan dalam ITKP)',
+    date: '16 September 2026',
     batchCode: 'BATCH-01-2026',
     organizer: 'PT. Agen Pengadaan Nasional',
-    createdAt: Date.now() - 86400000 * 5
-  },
-  {
-    id: 'evt-pbj-level-1',
-    name: 'Pelatihan Kompetensi Pengadaan Barang/Jasa Pemerintah (PBJP)',
-    date: '20 Oktober 2026',
-    batchCode: 'BATCH-02-2026',
-    organizer: 'PT. Agen Pengadaan Nasional & Mitra PBJ',
-    createdAt: Date.now() - 86400000 * 2
+    createdAt: 1789721531860
   }
 ];
 
@@ -560,7 +552,32 @@ export function getSavedEventsFromLocalStorage(): CertificateEvent[] {
       return INITIAL_DEFAULT_EVENTS;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : INITIAL_DEFAULT_EVENTS;
+    const isDummy = (e: CertificateEvent) => 
+      !e ||
+      e.id === 'evt-mitigasi-risiko-2026' || 
+      e.id === 'evt-pbj-level-1' || 
+      (typeof e.name === 'string' && (
+        e.name.includes('Bimbingan Teknis Strategis Mitigasi Risiko') ||
+        e.name.includes('Pelatihan Kompetensi Pengadaan Barang/Jasa')
+      ));
+
+    const cleaned = (Array.isArray(parsed) ? parsed : []).filter(e => !isDummy(e));
+    if (cleaned.length === 0) {
+      localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(INITIAL_DEFAULT_EVENTS));
+      return INITIAL_DEFAULT_EVENTS;
+    }
+
+    // Ensure the real 187-participant event is preserved
+    if (!cleaned.some(e => e.name.toLowerCase().includes('transformasi pengadaan digital'))) {
+      cleaned.unshift(INITIAL_DEFAULT_EVENTS[0]);
+    }
+
+    // Save cleaned events back to localStorage if dummies were removed
+    if (Array.isArray(parsed) && cleaned.length !== parsed.length) {
+      localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(cleaned));
+    }
+
+    return cleaned;
   } catch {
     return INITIAL_DEFAULT_EVENTS;
   }
@@ -652,6 +669,44 @@ export async function saveCertificatesToCloud(certificates: CertificateItem[]): 
     return { success: true, count: totalSaved };
   } catch (err: any) {
     return { success: false, count: 0, error: err?.message || 'Network error saat menghubungi Supabase.' };
+  }
+}
+
+/**
+ * Fetch all certificates from Supabase Cloud
+ */
+export async function fetchCertificatesFromCloud(): Promise<CertificateItem[]> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('certificates')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error || !data) {
+      console.warn('Error fetching certificates from Supabase Cloud:', error);
+      return [];
+    }
+
+    return data.map((row: any) => ({
+      id: row.id,
+      certificateNumber: row.certificate_number,
+      recipientName: row.recipient_name,
+      recipientAgency: row.recipient_agency || '',
+      recipientRole: row.recipient_role || 'Peserta',
+      eventName: row.event_name,
+      issueDate: row.issue_date,
+      status: (row.status as 'valid' | 'revoked') || 'valid',
+      batchId: row.batch_id || '',
+      batchName: row.batch_name || '',
+      verificationUrl: row.verification_url || getVerificationUrl(row.id),
+      notes: row.notes || '',
+      createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now()
+    }));
+  } catch (err) {
+    console.error('Failed to fetch certificates from Supabase:', err);
+    return [];
   }
 }
 

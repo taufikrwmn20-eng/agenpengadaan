@@ -34,7 +34,11 @@ export default function App() {
       const urlParams = new URLSearchParams(window.location.search);
       const verifyParam = urlParams.get('verify') || urlParams.get('sertifikat') || urlParams.get('cert');
       if (verifyParam) {
-        setVerifyQuery(verifyParam);
+        if (verifyParam !== 'undefined' && verifyParam !== 'null') {
+          setVerifyQuery(verifyParam);
+        } else {
+          setVerifyQuery('');
+        }
         setIsVerifyModalOpen(true);
       }
     }

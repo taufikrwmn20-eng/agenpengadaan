@@ -4,13 +4,14 @@ import {
   AlertCircle, Trash2, Eye, RefreshCw, Sparkles, Layers, Sliders, 
   Move, Plus, X, Search, FileText, Check, Copy, ExternalLink, ShieldCheck,
   FileType, Calendar, Edit2, Building2, BookmarkPlus, ArrowRight, ArrowLeft,
-  ChevronRight, Filter, CloudUpload
+  ChevronRight, Filter, CloudUpload, CloudDownload
 } from 'lucide-react';
 import { 
   CertificateItem, CertificateMappingConfig, CertificateEvent 
 } from '../types';
 import { 
   DEFAULT_MAPPING_CONFIG, 
+  INITIAL_DEFAULT_EVENTS,
   downloadExcelTemplate, 
   parseExcelOrCsvFile, 
   renderCertificateToCanvas, 
@@ -18,8 +19,10 @@ import {
   getSavedCertificatesFromLocalStorage, 
   saveCertificatesToLocalStorage, 
   saveCertificatesToCloud, 
+  fetchCertificatesFromCloud,
   getVerificationUrl,
   getSavedEventsFromLocalStorage,
+  saveEventsToLocalStorage,
   addOrUpdateEventInLocalStorage,
   deleteEventFromLocalStorage
 } from '../data/certificateData';
@@ -47,12 +50,8 @@ export const CertificateManagerCMS: React.FC<CertificateManagerCMSProps> = ({
   const [isEditingEvent, setIsEditingEvent] = useState<boolean>(false);
 
   // Event Metadata
-  const [eventName, setEventName] = useState('Bimbingan Teknis Strategis Mitigasi Risiko Hukum Kontrak Pengadaan');
-  const [issueDate, setIssueDate] = useState(() => {
-    const d = new Date();
-    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-  });
+  const [eventName, setEventName] = useState('Transformasi Pengadaan Digital (Peran SPSE v5 dan Penguatan Indikator Pemanfaatan Sistem Pengadaan dalam ITKP)');
+  const [issueDate, setIssueDate] = useState('16 September 2026');
   const [batchName, setBatchName] = useState('BATCH-01-2026');
   const [organizerName, setOrganizerName] = useState('PT. Agen Pengadaan Nasional');
 
@@ -130,6 +129,7 @@ export const CertificateManagerCMS: React.FC<CertificateManagerCMSProps> = ({
   const [historyFilterEvent, setHistoryFilterEvent] = useState<string>('all');
   const [isSyncingToCloud, setIsSyncingToCloud] = useState(false);
   const [isSyncedToCloud, setIsSyncedToCloud] = useState(false);
+  const [isLoadingCloud, setIsLoadingCloud] = useState(false);
 
   const handleSyncAllCertificatesToCloud = async () => {
     setIsSyncingToCloud(true);
@@ -215,18 +215,95 @@ export const CertificateManagerCMS: React.FC<CertificateManagerCMSProps> = ({
     loadSavedHistory();
   }, []);
 
-  const loadSavedHistory = () => {
-    const list = getSavedCertificatesFromLocalStorage();
-    setSavedCertificates(list);
-    // Silent background auto-sync so QR code verification always stays up-to-date
-    if (list.length > 0) {
-      saveCertificatesToCloud(list).catch(() => {});
+  const loadSavedHistory = async (forceCloudSync = false) => {
+    // 1. Initial fast local load for instantaneous UI response
+    const localList = getSavedCertificatesFromLocalStorage();
+    if (localList.length > 0) {
+      setSavedCertificates(localList);
+    }
+
+    // 2. Fetch live certificates from Supabase Cloud to ensure cross-browser & cross-device synchronization
+    setIsLoadingCloud(true);
+    try {
+      const cloudList = await fetchCertificatesFromCloud();
+      if (cloudList && cloudList.length > 0) {
+        // If local is empty, or cloud has more or equal records, or forced sync: populate from cloud
+        if (localList.length === 0 || cloudList.length >= localList.length || forceCloudSync) {
+          setSavedCertificates(cloudList);
+          saveCertificatesToLocalStorage(cloudList);
+          setIsSyncedToCloud(true);
+        } else if (localList.length > cloudList.length) {
+          // Local has newer unpushed records, auto push to cloud
+          saveCertificatesToCloud(localList).catch(() => {});
+        }
+
+        // Clean out any legacy dummy events from events table
+        const currentEvents = getSavedEventsFromLocalStorage();
+        const isDummy = (e: CertificateEvent) => 
+          !e ||
+          e.id === 'evt-mitigasi-risiko-2026' || 
+          e.id === 'evt-pbj-level-1' || 
+          (typeof e.name === 'string' && (
+            e.name.includes('Bimbingan Teknis Strategis Mitigasi Risiko') ||
+            e.name.includes('Pelatihan Kompetensi Pengadaan Barang/Jasa')
+          ));
+
+        let newEventsList = currentEvents.filter(e => !isDummy(e));
+        let eventsUpdated = currentEvents.length !== newEventsList.length;
+
+        // Group cloud certificates by event name to ensure real events are always registered
+        cloudList.forEach(cert => {
+          const normName = (cert.eventName || '').trim();
+          if (!normName) return;
+          const exists = newEventsList.find(e => (e.name || '').trim().toLowerCase() === normName.toLowerCase());
+          if (!exists) {
+            const newEvt: CertificateEvent = {
+              id: cert.batchId || `evt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              name: normName,
+              date: cert.issueDate || '16 September 2026',
+              batchCode: cert.batchName || 'BATCH-01-2026',
+              organizer: 'PT. Agen Pengadaan Nasional',
+              createdAt: cert.createdAt || Date.now()
+            };
+            newEventsList.push(newEvt);
+            eventsUpdated = true;
+          }
+        });
+
+        if (newEventsList.length === 0) {
+          newEventsList = [...INITIAL_DEFAULT_EVENTS];
+          eventsUpdated = true;
+        }
+
+        if (eventsUpdated) {
+          setEvents(newEventsList);
+          saveEventsToLocalStorage(newEventsList);
+        }
+
+        // If no event is selected, select the first real event
+        if (!selectedEventId || isDummy(events.find(e => e.id === selectedEventId) as any)) {
+          if (newEventsList.length > 0) {
+            handleSelectEvent(newEventsList[0].id);
+          }
+        }
+      } else if (localList.length > 0) {
+        // Cloud is empty but local has items: auto sync local to cloud
+        saveCertificatesToCloud(localList).catch(() => {});
+      }
+    } catch (err) {
+      console.warn('Could not sync certificates from cloud:', err);
+    } finally {
+      setIsLoadingCloud(false);
     }
   };
 
-  // Helper to count printed certificates per event
+  // Helper to count printed certificates per event with normalized matching
   const getEventCertCount = (evt: CertificateEvent) => {
-    return savedCertificates.filter(c => c.eventName === evt.name || c.batchId === evt.id).length;
+    const normEvtName = (evt.name || '').trim().toLowerCase();
+    return savedCertificates.filter(c => {
+      const normCertEvent = (c.eventName || '').trim().toLowerCase();
+      return (normCertEvent && normCertEvent === normEvtName) || (c.batchId && c.batchId === evt.id);
+    }).length;
   };
 
   // Select an Event and load its metadata & template
@@ -2105,34 +2182,34 @@ export const CertificateManagerCMS: React.FC<CertificateManagerCMSProps> = ({
                 </span>
               </div>
 
-              {/* Tombol Cepat Kirim ke Cloud (Opsi 1) */}
-              <button
-                onClick={handleSyncAllCertificatesToCloud}
-                disabled={isSyncingToCloud || savedCertificates.length === 0}
-                className={`px-4 py-3 font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:shadow disabled:opacity-50 ${
-                  isSyncedToCloud 
-                    ? 'bg-emerald-700 text-white' 
-                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                }`}
-                title="Kirim semua data sertifikat ke database Supabase Cloud agar QR code sah diverifikasi secara publik"
+              {/* Indikator Status Cloud Otomatis (Tersinkron Otomatis Tanpa Perlu Klik Manual) */}
+              <div 
+                className="flex items-center gap-2 text-xs font-bold px-3.5 py-2.5 rounded-xl border bg-emerald-50 text-emerald-900 border-emerald-200 shadow-2xs"
+                title="Sistem berjalan otomatis: tersinkron langsung ke database Supabase Cloud saat membuka halaman atau mencetak sertifikat."
               >
-                {isSyncingToCloud ? (
+                {isLoadingCloud ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                    <span>Menyimpan ke Cloud...</span>
-                  </>
-                ) : isSyncedToCloud ? (
-                  <>
-                    <ShieldCheck className="w-4 h-4 text-emerald-200" />
-                    <span>✓ Tersimpan di Cloud ({savedCertificates.length})</span>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-700" />
+                    <span>Sinkronisasi Otomatis Cloud...</span>
                   </>
                 ) : (
                   <>
-                    <CloudUpload className="w-4 h-4 text-emerald-100" />
-                    <span>Kirim ke Cloud ({savedCertificates.length})</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <span className="whitespace-nowrap">Cloud Aktif ({savedCertificates.length} Terverifikasi)</span>
+                    <button
+                      onClick={() => {
+                        loadSavedHistory(true);
+                        onShowToast('Menyinkronkan data terbaru dari Supabase Cloud...');
+                      }}
+                      className="ml-1 text-emerald-700 hover:text-emerald-950 p-1 rounded hover:bg-emerald-100 transition cursor-pointer"
+                      title="Perbarui data dari Supabase Cloud"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                    </button>
                   </>
                 )}
-              </button>
+              </div>
 
               <button
                 onClick={handleDownloadAllZipFromTier4}
@@ -2227,7 +2304,29 @@ export const CertificateManagerCMS: React.FC<CertificateManagerCMSProps> = ({
                   {filteredHistory.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="text-center py-12 text-slate-500 font-medium text-xs">
-                        Belum ada sertifikat yang tersimpan. Silakan mulai cetak dari <strong className="text-[#073B75]">Tabel Kegiatan</strong> atau <strong className="text-emerald-700">Upload Peserta</strong>.
+                        {isLoadingCloud ? (
+                          <div className="flex flex-col items-center justify-center gap-2 py-4">
+                            <RefreshCw className="w-6 h-6 animate-spin text-[#073B75]" />
+                            <span className="text-slate-700 font-bold text-sm">Menyinkronkan dari Supabase Cloud...</span>
+                            <span className="text-slate-500 text-xs">Sedang mengambil 187+ data sertifikat dari server agar dapat diakses di peramban ini.</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center gap-3 py-4">
+                            <p className="text-slate-600 max-w-md">
+                              Belum ada sertifikat di memori peramban ini. Jika sertifikat sudah diunggah di peramban/komputer lain dan tersimpan di database Supabase Cloud, klik tombol di bawah untuk menyinkronkan data.
+                            </p>
+                            <button
+                              onClick={() => {
+                                loadSavedHistory(true);
+                                onShowToast('Mengambil data sertifikat dari Supabase Cloud...');
+                              }}
+                              className="px-4 py-2.5 bg-[#073B75] hover:bg-blue-800 text-white font-bold rounded-xl text-xs transition flex items-center gap-2 cursor-pointer shadow-sm"
+                            >
+                              <CloudDownload className="w-4 h-4" />
+                              <span>Ambil Data dari Supabase Cloud</span>
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ) : (

@@ -25,17 +25,24 @@ export const CertificateVerificationModal: React.FC<CertificateVerificationModal
 
   useEffect(() => {
     if (initialQuery && isOpen) {
-      setQuery(initialQuery);
-      performSearch(initialQuery);
+      if (initialQuery !== 'undefined' && initialQuery !== 'null') {
+        setQuery(initialQuery);
+        performSearch(initialQuery);
+      } else {
+        setQuery('');
+        setResult(null);
+        setSearched(false);
+      }
     }
   }, [initialQuery, isOpen]);
 
   const performSearch = async (searchTarget: string) => {
-    if (!searchTarget.trim()) return;
+    const clean = (searchTarget || '').trim();
+    if (!clean || clean === 'undefined' || clean === 'null') return;
     setIsSearching(true);
     setSearched(true);
     try {
-      const cert = await verifyCertificate(searchTarget.trim());
+      const cert = await verifyCertificate(clean);
       setResult(cert);
     } catch (err) {
       console.error('Error verifying certificate:', err);
